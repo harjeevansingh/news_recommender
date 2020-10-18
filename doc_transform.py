@@ -2,61 +2,62 @@ import numpy as np
 import pandas as pd
 import spacy
 import en_core_web_sm
-from spacy.tokenizer import Tokenizer
+import re
 
-
-# Tokenizer
-def tokenize(text):
-    tokens = []
-    nlp = spacy.load("en_core_web_sm")
-    doc = nlp(text)
-    for t in doc:
-        tokens.append(t.text)
-
-    return doc, tokens
-
-
-# Lemmatizer
-def lemmatize(text):
-    lemms = []
-    doc, _ = tokenize(text)
-    for t in doc:
-        lemms.append(t.lemma_)
-    return lemms
-
-
-# Remove stop words
-def remove_stopwords(words):
-    no_stop = []
-    for word in words:
-        if word not in nlp.Defaults.stop_words:
-            no_stop.append(word)
-            print(word)
-    return no_stop
-
-
-# creating vocab for the articles
-def get_vocab(corpus):
-    lemm_words = set([])
-    for s in art:
-        lemms = lemmatize(s)  # getting lemmatized words
-    for lemm in lemms:
-      lemm_words.add(lemm)       # avoiding repitition of words
-    lemm_words = lemm_words
-    lemm_words = list(lemm_words)  # converting to list
-
-    vocab = remove_stopwords(lemm_words)
-
-    return vocab
+from spacy.lang.en.stop_words import STOP_WORDS
 
 
 nlp = spacy.load("en_core_web_sm")
-df = pd.read_csv("NEWS sample.csv")
-df = df[:20]                               # to reduce the size
-
-df.drop(["Unnamed: 5"], axis=1, inplace=True)
-
+df = pd.read_csv("./NEWS sample.csv")
+df = df[:10]                               # to limit the size
 art = df['Summary']
 
-vocab = get_vocab(art)
-print(vocab)
+
+# spacy for everything
+def cleaning(text):
+    nlp = spacy.load("en_core_web_sm")
+
+    text_lower= text.lower()                           #convert to lower case
+    num_removed = re.sub("\d+", "", text_lower)        #remove numbers
+    removed_lines=re.sub('\n','',num_removed)               #remove \n
+    removed_html = re.compile(r'<.*?>').sub('', removed_lines)     #remove html tags
+    result=removed_html
+
+    doc = nlp(result)
+    lemmas = [t.lemma_ for t in doc if t.lemma_ not in STOP_WORDS]
+
+    no_stop = []
+    puncs = "!\"#$%&()*+-./:;<=>?@[\]^_`{|}~\n'"
+    for lemma in lemmas:
+      if lemma[-1] in puncs:
+          lemma = lemma[:-1]
+      if lemma not in puncs and lemma.isalpha():
+          no_stop.append(lemma)
+
+    cleaned = " ".join(no_stop)
+    print(text)
+    print(cleaned)
+    return cleaned
+
+
+cleaned_art = []
+filename = "cleaned_articles_rough.csv"
+f = open(filename, "w", encoding='utf-8')
+# f.write("Article:\n")
+for a in art:
+    cleaned_each = cleaning(a)
+    # f.write(cleaned_each+"\n")
+    cleaned_art.append(cleaned_each)
+# f.close()
+df['Summary'] = cleaned_art
+print(df['Summary'].head())
+for a in df['Summary']:
+    f.write(a+"\n")
+f.close()
+
+
+
+
+
+
+
